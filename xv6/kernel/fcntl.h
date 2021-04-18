@@ -4,6 +4,10 @@
 #define O_CREATE  0x200
 #define O_TRUNC   0x400
 
+#ifndef MP2
+#define MP2
+#endif
+
 #ifdef MP2
 #define PROT_NONE       0x0
 #define PROT_READ       0x1

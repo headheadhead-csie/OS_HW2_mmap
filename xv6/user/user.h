@@ -27,6 +27,7 @@ int uptime(void);
 void *mmap(void *, size_t, int, int,
            int, off_t);
 int munmap(void *, size_t);
+void vmprint();
 
 // ulib.c
 int stat(const char*, struct stat*);

@@ -39,3 +39,4 @@ entry("uptime");
 # mp2
 entry("mmap");
 entry("munmap");
+entry("vmprint");
