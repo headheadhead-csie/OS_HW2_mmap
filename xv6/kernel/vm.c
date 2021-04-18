@@ -460,3 +460,30 @@ void vmprint(pagetable_t pagetable){
     }
     return;
 }
+
+//uvmalloc with protection
+uint64
+uvmalloc_prot(pagetable_t pagetable, uint64 oldsz, uint64 newsz, int flag)
+{
+    char *mem;
+    uint64 a;
+
+    if(newsz < oldsz)
+        return oldsz;
+
+    oldsz = PGROUNDUP(oldsz);
+    for(a = oldsz; a < newsz; a += PGSIZE){
+        mem = kalloc();
+        if(mem == 0){
+            uvmdealloc(pagetable, a, oldsz);
+            return 0;
+        }
+        memset(mem, 0, PGSIZE);
+        if(mappages(pagetable, a, PGSIZE, (uint64)mem, flag|PTE_U) != 0){
+            kfree(mem);
+            uvmdealloc(pagetable, a, oldsz);
+            return 0;
+        }
+    }
+    return newsz;
+}

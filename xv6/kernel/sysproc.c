@@ -110,39 +110,59 @@ uint64 sys_mmap(void){
     int prot;
     int flags;
     int fd;
+    int pte_flag = 0;
     off_t offset;
     argaddr(0, (uint64 *)&addr), argaddr(1, &length), argint(2, &prot),
     argint(3, &flags), argint(4, &fd), argaddr(5, &offset);
 
     struct file *f = p->ofile[fd];
     if( addr != 0 ){
-        panic("addr should be 0");
+        printf("addr should be 0\n");
         goto bad;
     }
     if( length < 0 ){
-        panic("length should be greater than 0");
+        printf("length should be greater than 0\n");
         goto bad;
     }
     if( prot < 0 || prot > 7){
-        panic("invalid prot");
+        printf("invalid prot\n");
         goto bad;
     }
     if( !(flags & (MAP_SHARED | MAP_PRIVATE) ) ){
-        panic("invalid flags");
+        printf("invalid flags\n");
         goto bad;
     }
     if( f == 0){
-        panic("invalid fd");
+        printf("invalid fd\n");
         goto bad;
     }
     if( f->type != FD_INODE ){
-        panic("invalid file");
+        printf("invalid file\n");
         goto bad;
     }
     if( offset < 0){
-        panic("invalid offset");
+        printf("invalid offset\n");
         goto bad;
     }
+
+    // handle permission issue
+    printf("writable:%d, readable:%d\n", f->writable, f->readable);
+    if(prot & PROT_READ){
+        pte_flag |= PTE_R;
+        if(!(f->readable)){
+            printf("file is not readable\n");
+            goto bad;
+        }
+    }
+    if(prot & PROT_WRITE){
+        pte_flag |= PTE_W;
+        if(!(f->writable) && (flags & MAP_SHARED)){
+            printf("file is not writable\n");
+            goto bad;
+        }
+    }
+    if(prot & PROT_EXEC)
+        pte_flag |= PTE_X;
 
     struct vma VMA;
     VMA.vm_addr = PGROUNDUP(p->sz);
@@ -152,13 +172,20 @@ uint64 sys_mmap(void){
     VMA.vm_pgoff = offset;//offset within file
     
     length = PGROUNDUP(length);
+    offset = PGROUNDUP(offset);
 
     // grow memory and map, same as sbrk
-    if( growproc(length) < 0)
-        panic("growproc fail");
+    if( (p->sz= uvmalloc_prot(p->pagetable, p->sz, p->sz+length, pte_flag)) == 0){
+        printf("grow proc fail\n");
+        goto bad;
+    }
 
-    //read the content of file
+    // read the content of file
+    // notice fileread will change the offset of f
+    // we must recover it
+    uint old_offset = f->off;
     fileread(f, VMA.vm_addr, length);
+    f->off = old_offset;
 
     // increase file's reference count
     VMA.vm_file->ref++;
