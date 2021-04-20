@@ -307,7 +307,6 @@ fork(void)
     np->state = RUNNABLE;
 
     // mp2
-    np->mmap_sz = p->mmap_sz;
     struct vma *VMA, *nVMA;
     struct vm_block *nblocks, *blocks;
     int offset = 0, pte_per = 0;

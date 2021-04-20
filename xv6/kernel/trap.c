@@ -76,15 +76,16 @@ int mmap_allocate(uint64 va, int scause, struct proc *p){
 
     // child will copy its memory from parent
     // if MAP_SHARED is set on
-    if(p->parent->pid != 2 && VMA->vm_flags & MAP_SHARED){
+    if(p->parent->pid != 2 && (VMA->vm_flags & MAP_SHARED) &&
+       walkaddr(p->parent->pagetable, va) != 0){
         char *tmp = kalloc();
         uvmalloc_prot(p->pagetable, va, va+PGSIZE, pte_per);
         if( copyin(p->parent->pagetable, tmp, va, PGSIZE) == -1){
-            // printf("copyin fail\n");
+        //    printf("copyin fail\n");
             goto bad;
         }
         if( copyout(p->pagetable, va, tmp, PGSIZE) == -1){
-            // printf("copyout fail\n"); 
+        //    printf("copyout fail\n"); 
             goto bad;
         }
         kfree(tmp);

@@ -106,6 +106,25 @@ sys_uptime(void)
 //
 // Some code block is comment out because it should be 
 // implemented at trap.c
+
+static int findVMA(uint64 va, struct vma **VMA, struct vm_block **ptr){
+    struct proc *p = myproc();
+    struct vm_block *next;
+    for(int i = 0; i < 16; i++){
+        *ptr = p->vmas[i].vm_head; 
+        if(*ptr == 0)
+            continue;
+        while((*ptr)->next != 0){
+            next = (*ptr)->next;
+            if(next->addr == va){
+                *VMA = p->vmas+i;
+                return 1;
+            }
+            *ptr = next;
+        }
+    }
+    return 0;
+}
 uint64 sys_mmap(void){
     struct proc *p = myproc();
     struct vm_addr *addr;
@@ -187,29 +206,29 @@ uint64 sys_mmap(void){
     VMA->vm_flags = flags;
     VMA->vm_prot = prot;
     VMA->vm_pgoff = offset;//offset within file
-    struct vm_block *ptr = VMA->vm_head;
+    struct vm_block *ptr = VMA->vm_head, *nil;
+    struct vma *null;
     int num_pages = length/PGSIZE;
     int count = 0;
     // assign address for each block,
     // hasn't allocated yet
-    if(p->mmap_sz == 0)
-        p->mmap_sz = MAXVA - (mmap_MAXPAGE*16+2)*PGSIZE; 
+    uint64 start = TRAMPOLINE - (mmap_MAXPAGE*16)*PGSIZE; 
+    uint64 va = start;
     for(int i = 0; i < mmap_MAXPAGE && count < num_pages; i++){
-        if( VMA->vm_blocks[i].addr == 0 &&
-            VMA->vm_blocks+i != VMA->vm_head &&
-            VMA->vm_blocks[i].addr != 1){
-
-            ptr->next = (VMA->vm_blocks)+i;
-            ptr = ptr->next;
-            ptr->addr = p->mmap_sz + count*PGSIZE;
-            ptr->offset = count*PGSIZE;
-            count++;
+        if( VMA->vm_blocks[i].addr == 0){
+            for(; va < TRAMPOLINE; va += PGSIZE){
+                if(!(findVMA(va, &null, &nil) ) ){
+                    ptr->next = (VMA->vm_blocks)+i; 
+                    ptr = ptr->next;
+                    ptr->addr = va;
+                    ptr->offset = count*PGSIZE;
+                    count++;
+                    break;
+                }
+            }
         }
     }
     ptr->next = 0;
-
-    // lazy allocation
-    p->mmap_sz += length;
 
     // increase file's reference count
     filedup(VMA->vm_file);
@@ -217,25 +236,6 @@ uint64 sys_mmap(void){
     return VMA->vm_head->next->addr;
  bad:
     return -1;
-}
-
-static int findVMA(uint64 va, struct vma **VMA, struct vm_block **ptr){
-    struct proc *p = myproc();
-    struct vm_block *next;
-    for(int i = 0; i < 16; i++){
-        *ptr = p->vmas[i].vm_head; 
-        if(*ptr == 0)
-            continue;
-        while((*ptr)->next != 0){
-            next = (*ptr)->next;
-            if(next->addr == va){
-                *VMA = p->vmas+i;
-                return 1;
-            }
-            *ptr = next;
-        }
-    }
-    return 0;
 }
 
 uint64 sys_munmap(void){
@@ -256,7 +256,8 @@ uint64 sys_munmap(void){
     int num_pages = length/PGSIZE;
 
     // after calling findVMA, ptr is the block before the
-    // vm_block we want to unmap, in order to maintain linked list
+    // vm_block we want to unmap, we delete node and
+    // maintain linked list
     struct vm_block *start = ptr;
     struct vm_block *next = ptr->next;
     uint64 old_offset;
@@ -288,7 +289,6 @@ uint64 sys_munmap(void){
         if(VMA->vm_head != 0 && VMA->vm_head->next != 0)
             return 0;
     }
-    p->mmap_sz = 0;
     return 0;
  bad:
     return -1;
