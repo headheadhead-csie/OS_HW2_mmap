@@ -149,6 +149,8 @@ void            trapinit(void);
 void            trapinithart(void);
 extern struct spinlock tickslock;
 void            usertrapret(void);
+//mp2
+int             mmap_allocate(uint64, int, struct proc*, int);
 
 // uart.c
 void            uartinit(void);
@@ -177,7 +179,6 @@ int             copyinstr(pagetable_t, char *, uint64, uint64);
 //mp2
 uint64          uvmalloc_prot(pagetable_t, uint64, uint64, int);
 void            vmprint(pagetable_t);
-int             uvm_whole_copy(pagetable_t, pagetable_t);
 
 // plic.c
 void            plicinit(void);

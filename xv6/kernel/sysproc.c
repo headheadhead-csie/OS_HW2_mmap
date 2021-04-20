@@ -131,44 +131,44 @@ uint64 sys_mmap(void){
 
     struct file *f = p->ofile[fd];
     if( addr != 0 ){
-        printf("addr should be 0\n");
+    //    printf("addr should be 0\n");
         goto bad;
     }
     if( length < 0 ){
-        printf("length should be greater than 0\n");
+    //    printf("length should be greater than 0\n");
         goto bad;
     }
     if( prot < 0 || prot > 7){
-        printf("invalid prot\n");
+    //    printf("invalid prot\n");
         goto bad;
     }
     if( !(flags & (MAP_SHARED | MAP_PRIVATE) ) ){
-        printf("invalid flags\n");
+    //    printf("invalid flags\n");
         goto bad;
     }
     if( f == 0){
-        printf("invalid fd\n");
+    //    printf("invalid fd\n");
         goto bad;
     }
     if( f->type != FD_INODE ){
-        printf("invalid file\n");
+    //    printf("invalid file\n");
         goto bad;
     }
     if( offset != 0){
-        printf("invalid offset\n");
+    //    printf("invalid offset\n");
         goto bad;
     }
 
     // handle permission issue
     if(prot & PROT_READ){
         if(!(f->readable)){
-            printf("file is not readable\n");
+    //        printf("file is not readable\n");
             goto bad;
         }
     }
     if(prot & PROT_WRITE){
         if(!(f->writable) && (flags & MAP_SHARED)){
-            printf("file is not writable\n");
+    //        printf("file is not writable\n");
             goto bad;
         }
     }
@@ -190,7 +190,7 @@ uint64 sys_mmap(void){
         }
     }
     if(VMA == 0){
-        printf("no vma left\n");
+    //    printf("no vma left\n");
         goto bad;
     }
     length = PGROUNDUP(length);
@@ -280,7 +280,7 @@ uint64 sys_munmap(void){
     struct vma *VMA;
     struct vm_block *ptr;
     if(!findVMA(addr, &VMA, &ptr)){
-        printf("invalid addr\n");
+    //    printf("invalid addr\n");
         goto bad;
     }           
     int num_pages = length/PGSIZE;

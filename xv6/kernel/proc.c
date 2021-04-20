@@ -323,13 +323,24 @@ fork(void)
             nVMA->vm_file = filedup(VMA->vm_file);
         blocks = VMA->vm_blocks;
         nblocks = nVMA->vm_blocks;
+
+        char *tmp = kalloc();
+        uint64 va, pa;
         for(int j = 0; j < mmap_MAXPAGE; j++){
             nblocks[j] = blocks[j]; 
             if(blocks[j].next != 0){
                 offset = blocks[j].next - blocks;
                 nblocks[j].next = nblocks+offset;
+                // copy the content to child
+                // since the content should be same at fork() being called
+                va = blocks[j].next->addr;
+                if( (pa = walkaddr(p->pagetable, va)) != 0){
+                    copyin(p->pagetable, tmp, va, PGSIZE);
+                    copyout(np->pagetable, va, tmp, PGSIZE); 
+                }
             }
         }
+        kfree(tmp);
     }
 
     release(&np->lock);
@@ -375,6 +386,7 @@ exit(int status)
         panic("init exiting");
 
     // munmap
+    // free all visible resources
     struct vma *VMA;
     struct vm_block *ptr, *next;
     uint64 old_offset;
@@ -761,6 +773,8 @@ procdump(void)
         printf("\n");
     }
 }
+
+// write a page back to file
 int writepage(struct vma *VMA, struct file *f, uint64 addr, int n){
     int r = 0;
     if((VMA->vm_flags & MAP_PRIVATE) || 
