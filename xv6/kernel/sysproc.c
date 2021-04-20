@@ -106,18 +106,6 @@ sys_uptime(void)
 //
 // Some code block is comment out because it should be 
 // implemented at trap.c
-/*
-static void listprint(struct vm_block *head){
-    if(head == 0)
-        return;
-    struct vm_block *ptr = head;
-    struct vm_block *next = head->next;
-    while(next != 0){
-        ptr = next;
-        printf("next:%p\n", next->addr);
-        next = ptr->next; 
-    }
-}*/
 uint64 sys_mmap(void){
     struct proc *p = myproc();
     struct vm_addr *addr;
@@ -172,17 +160,10 @@ uint64 sys_mmap(void){
             goto bad;
         }
     }
-    // check file size and mmap length
-    // seems that there is no need to check this issue?
-    // struct stat s;
-    // filestat(f, (uint64)&s);
-    // if(s.size < length){
-    //     printf("file size is not big enough\n");
-    //     goto bad;
-    // }
 
     struct vma *VMA = 0;
     int i;
+    // find available vma
     for(i = 0; i < 16; i++){
         if(p->vmas[i].vm_head == 0){
             VMA = p->vmas+i;
@@ -227,17 +208,6 @@ uint64 sys_mmap(void){
     }
     ptr->next = 0;
 
-    // grow memory and map, same as sbrk
-    // do it at trap.c
-    // if( (uvmalloc_prot(p->pagetable, p->sz, p->sz+length, 31)) == 0){
-    //     printf("grow proc fail\n");
-    //     goto bad;
-    // }
-    // if(fileread(VMA->vm_file, p->sz, length) < 0){
-    //     printf("fileread error\n");
-    //     goto bad;
-    // }
-    
     // lazy allocation
     p->mmap_sz += length;
 
@@ -308,6 +278,7 @@ uint64 sys_munmap(void){
         ptr = next;
         num_pages--;
     }
+    // maintain linked list and vma
     if(ptr->next != 0)
         start->next = ptr->next;
     if(VMA->vm_head->next == 0)

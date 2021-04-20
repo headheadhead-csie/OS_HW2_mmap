@@ -150,7 +150,7 @@ void            trapinithart(void);
 extern struct spinlock tickslock;
 void            usertrapret(void);
 //mp2
-int             mmap_allocate(uint64, int, struct proc*, int);
+int             mmap_allocate(uint64, int, struct proc*);
 
 // uart.c
 void            uartinit(void);

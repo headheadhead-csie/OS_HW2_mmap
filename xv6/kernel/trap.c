@@ -34,7 +34,7 @@ trapinithart(void)
 }
 
 // mp2
-//
+// find corresponding vma and vm_block
 static int findVMA(uint64 va, struct vma **VMA, struct proc *p){
     struct vm_block *ptr;
     for(int i = 0; i < 16; i++){
@@ -51,7 +51,7 @@ static int findVMA(uint64 va, struct vma **VMA, struct proc *p){
     }
     return 0;
 }
-int mmap_allocate(uint64 va, int scause, struct proc *p, int user){
+int mmap_allocate(uint64 va, int scause, struct proc *p){
     struct vma *VMA = 0;
     va = PGROUNDDOWN(va);
     if(findVMA(va, &VMA, p) == 0 ){
@@ -74,7 +74,23 @@ int mmap_allocate(uint64 va, int scause, struct proc *p, int user){
     pte_per |= PTE_V;
     pte_per |= PTE_U;
 
-    // 
+    // child will copy its memory from parent
+    // if MAP_SHARED is set on
+    if(p->parent->pid != 2 && VMA->vm_flags & MAP_SHARED){
+        char *tmp = kalloc();
+        uvmalloc_prot(p->pagetable, va, va+PGSIZE, pte_per);
+        if( copyin(p->parent->pagetable, tmp, va, PGSIZE) == -1){
+            // printf("copyin fail\n");
+            goto bad;
+        }
+        if( copyout(p->pagetable, va, tmp, PGSIZE) == -1){
+            // printf("copyout fail\n"); 
+            goto bad;
+        }
+        kfree(tmp);
+        return 0;
+    }
+
     // grow memory and map, same as sbrk
     // uvmalloc_prot is written by me at kernel/vm.c
     if( (uvmalloc_prot(p->pagetable, va, va+PGSIZE, pte_per)) == 0){
@@ -85,17 +101,13 @@ int mmap_allocate(uint64 va, int scause, struct proc *p, int user){
     // read the content of the file
     // notice fileread will change the offset of the file
     // we must recover it
-    if(user){
-        uint64 old_offset = VMA->vm_file->off;
-        VMA->vm_file->off = va-(VMA->vm_head->next->addr);
-        if(fileread(VMA->vm_file, va, PGSIZE) < 0){
-            //printf("fileread error\n");
-            goto bad;
-        }
-        VMA->vm_file->off = old_offset;
+    uint64 old_offset = VMA->vm_file->off;
+    VMA->vm_file->off = va-(VMA->vm_head->next->addr);
+    if(fileread(VMA->vm_file, va, PGSIZE) < 0){
+        //printf("fileread error\n");
+        goto bad;
     }
-    else{
-    }
+    VMA->vm_file->off = old_offset;
 
     return 0;
  bad:
@@ -140,7 +152,7 @@ usertrap(void)
     } else if((which_dev = devintr()) != 0){
         // ok
     } else if(r_scause() == 13 || r_scause() == 15){
-        if(mmap_allocate(r_stval(), r_scause(), myproc(), 1) == 0){
+        if(mmap_allocate(r_stval(), r_scause(), myproc()) == 0){
         }
         else{
             printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);

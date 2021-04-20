@@ -310,12 +310,13 @@ fork(void)
     np->mmap_sz = p->mmap_sz;
     struct vma *VMA, *nVMA;
     struct vm_block *nblocks, *blocks;
-    int offset = 0;
+    int offset = 0, pte_per = 0;
     for(int i = 0; i < 16; i++){
         VMA = p->vmas+i;
         nVMA = np->vmas+i;
         *nVMA = *VMA;
         if(VMA->vm_head != 0){
+            // maintain property of pointer
             offset = VMA->vm_head - VMA->vm_blocks;
             nVMA->vm_head = nVMA->vm_blocks + offset;
         }
@@ -323,20 +324,30 @@ fork(void)
             nVMA->vm_file = filedup(VMA->vm_file);
         blocks = VMA->vm_blocks;
         nblocks = nVMA->vm_blocks;
+        if(VMA->vm_prot & PROT_READ)
+            pte_per |= PTE_R;
+        if(VMA->vm_prot & PROT_WRITE)
+            pte_per |= PTE_W;
+        pte_per |= (PTE_U | PTE_V);
 
         char *tmp = kalloc();
         uint64 va, pa;
         for(int j = 0; j < mmap_MAXPAGE; j++){
             nblocks[j] = blocks[j]; 
             if(blocks[j].next != 0){
+
+                // maintain property of pointer
                 offset = blocks[j].next - blocks;
                 nblocks[j].next = nblocks+offset;
+                
                 // copy the content to child
                 // since the content should be same at fork() being called
                 va = blocks[j].next->addr;
-                if( (pa = walkaddr(p->pagetable, va)) != 0){
+                if( (pa = walkaddr(p->pagetable, va)) != 0 &&
+                    VMA->vm_flags & MAP_PRIVATE){
+                    uvmalloc_prot(np->pagetable, va, va+PGSIZE, pte_per);
                     copyin(p->pagetable, tmp, va, PGSIZE);
-                    copyout(np->pagetable, va, tmp, PGSIZE); 
+                    copyout(np->pagetable, va, tmp, PGSIZE);
                 }
             }
         }

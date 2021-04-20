@@ -461,7 +461,7 @@ void vmprint(pagetable_t pagetable){
     return;
 }
 
-// uvmalloc with protection
+//uvmalloc with protection
 uint64
 uvmalloc_prot(pagetable_t pagetable, uint64 oldsz, uint64 newsz, int flag)
 {
@@ -486,4 +486,38 @@ uvmalloc_prot(pagetable_t pagetable, uint64 oldsz, uint64 newsz, int flag)
         }
     }
     return newsz;
+}
+int uvm_whole_copy(pagetable_t old, pagetable_t new){
+    for(int i = 0; i < 512; i++){
+        pte_t pte_L2 = old[i];
+
+        if( pte_L2 & PTE_V ){
+            pagetable_t child_L1 = (pagetable_t)PTE2PA(pte_L2);
+            for(int j = 0; j < 512; j++){
+                pte_t pte_L1 = child_L1[j];
+                if( pte_L1 & PTE_V ){
+                    pagetable_t child_L0 = (pagetable_t)PTE2PA(pte_L1);
+                    for(int k = 0; k < 512; k++){
+                        pte_t pte_L0 = child_L0[k];
+                        if( pte_L0 & PTE_V ){
+                            uint64 pa = PTE2PA(pte_L0);
+                            int flags = PTE_FLAGS(pte_L0);
+                            char *mem;
+                            if((mem = kalloc()) == 0)
+                                return -1;
+                            memmove(mem, (char*)pa, PGSIZE);
+                            uint64 offset = (uint64)(i*512*512 + j*512 + k)*PGSIZE;
+                            if(offset != TRAMPOLINE && offset != TRAPFRAME){
+                                if(mappages(new, offset, PGSIZE, (uint64)mem, flags) != 0){
+                                    kfree(mem);
+                                    return -1;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } 
+    }
+    return 0;
 }
