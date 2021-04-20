@@ -82,13 +82,24 @@ struct trapframe {
 
 enum procstate { UNUSED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 // mp2, VMA
+//
+// in case of non successive mmap memory
+// adopt linked list to implement simply
+// will be quite slow if the mapping region is large
+#define mmap_MAXPAGE 1024
+struct vm_block{
+    // each struct vm_block refer to one page
+    uint64 addr;
+    off_t offset;
+    struct vm_block *next;
+};
 struct vma{
-    uint64 vm_addr; //the initial valu of vm_addr is 0,
-                    // which indicate that this vma has not been used
+    struct vm_block vm_blocks[mmap_MAXPAGE];
+    struct vm_block *vm_head; // the initial value of vm_head->addr is 0,
+                              // which indicate that this vma has not been used
     uint64 vm_length;
     int vm_flags;
     int vm_prot;
-    struct vma* vm_next;
     struct file *vm_file;
     uint64 vm_pgoff;
 };
@@ -114,4 +125,5 @@ struct proc {
     struct inode *cwd;                     // Current directory
     char name[16];                             // Process name (debugging)
     struct vma vmas[16];
+    uint64 mmap_sz;
 };

@@ -23,3 +23,4 @@
 //mp2
 #define SYS_mmap   22
 #define SYS_munmap 23
+#define SYS_vmprint 24

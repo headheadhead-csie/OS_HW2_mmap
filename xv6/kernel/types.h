@@ -14,3 +14,6 @@ typedef uint64 pde_t;
 typedef uint64 off_t;
 #endif
 typedef uint64 size_t;
+#ifndef pagetable_t
+typedef uint64 *pagetable_t;
+#endif
